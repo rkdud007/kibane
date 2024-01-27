@@ -1,3 +1,3 @@
 fn main() {
-    glist_cli::run();
+    kibane_cli::run();
 }
