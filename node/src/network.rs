@@ -1,3 +1,4 @@
+use crate::common::Hash;
 use libp2p::Multiaddr;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -54,12 +55,16 @@ pub fn get_p2p_bootnodes(network: Network) -> Vec<Multiaddr> {
     peers.iter().map(|s| s.parse().unwrap()).collect()
 }
 
-pub fn get_network_genesis(network: Network) -> Option<&'static str> {
+pub fn get_network_genesis(network: Network) -> Option<Hash> {
     let hex = match network {
         Network::Mainnet => "6BE39EFD10BA412A9DB5288488303F5DD32CF386707A5BEF33617F4C43301872",
         Network::Arabica => "5904E55478BA4B3002EE885621E007A2A6A2399662841912219AECD5D5CBE393",
         Network::Mocha => "B93BBE20A0FBFDF955811B6420F8433904664D45DB4BF51022BE4200C1A1680D",
         Network::Private => return None,
     };
-    Some(hex)
+
+    let bytes = hex::decode(hex).expect("failed decoding genesis hash");
+    let array = bytes.try_into().expect("invalid genesis hash lenght");
+
+    Some(Hash::Sha256(array))
 }

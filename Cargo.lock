@@ -885,6 +885,7 @@ version = "0.1.0"
 dependencies = [
  "celestia-tendermint",
  "dashmap",
+ "hex",
  "libp2p",
  "nmt-rs",
 ]

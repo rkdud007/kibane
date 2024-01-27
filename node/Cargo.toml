@@ -11,3 +11,4 @@ nmt-rs.workspace = true
 
 dashmap = "5.5.3"
 celestia-tendermint = "0.32.1"
+hex = "0.4.3"
