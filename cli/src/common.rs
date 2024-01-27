@@ -1,5 +1,8 @@
 use clap::{Parser, ValueEnum};
-use node::network::{get_network_genesis, get_network_id, get_p2p_bootnodes};
+use node::{
+    network::{get_network_genesis, get_network_id, get_p2p_bootnodes},
+    store::Store,
+};
 
 #[derive(Debug, Clone, ValueEnum)]
 pub(crate) enum ArgsNetwork {
@@ -37,4 +40,7 @@ pub fn run() {
     let network_id = get_network_id(network);
     let network_genesis = get_network_genesis(network);
     println!("p2p_bootnodes: {:?}", p2p_bootnodes);
+
+    let store = Store::new();
+    println!("initiating new store")
 }
