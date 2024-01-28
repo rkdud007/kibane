@@ -2899,6 +2899,7 @@ dependencies = [
  "celestia-tendermint",
  "dashmap",
  "hex",
+ "instant",
  "libp2p",
  "nmt-rs",
  "tokio",

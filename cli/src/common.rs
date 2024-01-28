@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use clap::{Parser, ValueEnum};
 use libp2p::Multiaddr;
 use node::{
@@ -5,6 +7,7 @@ use node::{
     node::{Node, NodeConfig},
     store::Store,
 };
+use tokio::time::sleep;
 
 #[derive(Debug, Clone, ValueEnum)]
 pub(crate) enum ArgsNetwork {
@@ -59,5 +62,9 @@ pub async fn run() {
     );
 
     let node = Node::new(node_config).await.unwrap();
-    println!("initiating new store:{:?}", node)
+    println!("node: {:?}", node);
+
+    loop {
+        sleep(Duration::from_secs(1)).await;
+    }
 }
