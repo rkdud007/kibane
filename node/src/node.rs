@@ -1,12 +1,14 @@
-use std::sync::Arc;
-
+use anyhow::Result;
+use libp2p::futures::StreamExt;
+use libp2p::gossipsub::IdentTopic;
 use libp2p::identity::Keypair;
-use libp2p::Multiaddr;
+use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
+use libp2p::{gossipsub, Multiaddr};
+use std::sync::Arc;
+use tokio::select;
 
 use crate::common::Hash;
-use crate::p2p::Peer2Peer;
 use crate::store::Store;
-use crate::syncer::Syncer;
 
 pub struct NodeConfig {
     /// An id of the network to connect to.
@@ -43,19 +45,91 @@ impl NodeConfig {
     }
 }
 
+pub(crate) fn gossipsub_ident_topic(network: &str, topic: &str) -> IdentTopic {
+    let network = network.trim_matches('/');
+    let topic = topic.trim_matches('/');
+    let s = format!("/{network}/{topic}");
+    IdentTopic::new(s)
+}
+
+#[derive(NetworkBehaviour)]
+struct Behaviour {
+    gossipsub: gossipsub::Behaviour,
+}
+
 #[derive(Debug)]
 pub struct Node {
-    p2p: Arc<Peer2Peer>,
     store: Arc<Store>,
-    syncer: Arc<Syncer>,
 }
 
 impl Node {
-    pub fn new(config: NodeConfig) -> Self {
-        let store = Arc::new(config.store);
+    pub async fn new(node_config: NodeConfig) -> Result<Self> {
+        let store = Arc::new(node_config.store);
+        let header_sub_topic = gossipsub_ident_topic(&node_config.network_id, "/header-sub/v0.0.1");
+        let message_authenticity =
+            gossipsub::MessageAuthenticity::Signed(node_config.p2p_local_keypair.clone());
+        let config = gossipsub::ConfigBuilder::default()
+            .validation_mode(gossipsub::ValidationMode::Strict)
+            .validate_messages()
+            .build()
+            .unwrap();
+        // build a gossipsub network behaviour
+        let mut gossipsub: gossipsub::Behaviour =
+            gossipsub::Behaviour::new(message_authenticity, config).unwrap();
+        if gossipsub.subscribe(&header_sub_topic).is_ok() {
+            println!("Subscribed to topic: {:?}", header_sub_topic);
+        } else {
+            eprintln!("Failed to subscribe to topic: {:?}", header_sub_topic);
+        }
+        //? 3. Swarm behaviour config
+        let behaviour = Behaviour { gossipsub };
+        let mut swarm = libp2p::SwarmBuilder::with_existing_identity(node_config.p2p_local_keypair)
+            .with_tokio()
+            .with_tcp(
+                libp2p::tcp::Config::default(),
+                libp2p::tls::Config::new,
+                libp2p::yamux::Config::default,
+            )
+            .unwrap()
+            .with_behaviour(|_| behaviour)
+            .unwrap()
+            .build();
 
-        let p2p = Arc::new(Peer2Peer::new(store.clone()));
-        let syncer = Arc::new(Syncer::new(store.clone()));
-        Self { p2p, store, syncer }
+        swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+
+        // Tell Swarm to listen on all bootnodes
+        for addr in node_config.p2p_bootnodes {
+            swarm.dial(addr.clone()).unwrap();
+            println!("Dialed {addr}")
+        }
+
+        loop {
+            select! {
+
+                event = swarm.select_next_some() => {
+                    match event {
+                        SwarmEvent::NewListenAddr { address, .. } => println!("Listening on {address:?}"),
+                        SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(gossipsub::Event::Message {
+                            propagation_source,
+                            message_id,
+                            message,
+                        })) => {
+                            println!(
+                                "Received message from {:?}: {}",
+                                propagation_source,
+                                String::from_utf8_lossy(&message.data)
+                            );
+                        },
+                        SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                            println!("Connected to {:?}", peer_id);
+                        },
+                        SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                            println!("Disconnected from {:?}", peer_id);
+                        },
+                        _ => {}
+                    }
+                }
+            }
+        }
     }
 }

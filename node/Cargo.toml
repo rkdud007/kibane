@@ -8,7 +8,9 @@ edition = "2021"
 [dependencies]
 libp2p.workspace = true
 nmt-rs.workspace = true
+tokio.workspace = true
 
 dashmap = "5.5.3"
 celestia-tendermint = "0.32.1"
 hex = "0.4.3"
+anyhow = "1.0.79"

@@ -35,7 +35,7 @@ struct Cli {
     listen_addrs: Vec<Multiaddr>,
 }
 
-pub fn run() {
+pub async fn run() {
     let args = Cli::parse();
     // 1. Get the network from the command line arguments
     let network = args.network.into();
@@ -58,6 +58,6 @@ pub fn run() {
         store,
     );
 
-    let node = Node::new(node_config);
+    let node = Node::new(node_config).await.unwrap();
     println!("initiating new store:{:?}", node)
 }

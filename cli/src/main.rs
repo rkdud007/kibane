@@ -1,3 +1,4 @@
-fn main() {
-    kibane_cli::run();
+#[tokio::main]
+async fn main() {
+    kibane_cli::run().await;
 }
