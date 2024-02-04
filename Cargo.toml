@@ -3,7 +3,7 @@ resolver = "2"
 members = ["cli", "node"]
 
 [workspace.dependencies]
-libp2p = { version = "0.52", features = ["full"] }
+libp2p = { version = "0.53.2", features = ["full"] }
 nmt-rs = "0.1.0"
 node = { path = "node" }
 tokio = { version = "1", features = ["full"] }

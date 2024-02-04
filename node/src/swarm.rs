@@ -1,10 +1,10 @@
 use anyhow::Result;
 use instant::{Duration, Instant};
 use libp2p::futures::StreamExt;
-use libp2p::gossipsub::IdentTopic;
+use libp2p::gossipsub::{self, IdentTopic};
 use libp2p::multiaddr::Protocol;
 use libp2p::swarm::NetworkBehaviour;
-use libp2p::{gossipsub, kad, Multiaddr, PeerId, StreamProtocol, Swarm};
+use libp2p::{dns, kad, noise, tcp, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder};
 
 use crate::node::NodeConfig;
 
@@ -66,24 +66,27 @@ impl SwarmRunner {
             kademlia,
         };
         let local_keypair = node_config.p2p_local_keypair.clone();
-        let mut swarm = libp2p::SwarmBuilder::with_existing_identity(local_keypair)
+        let mut swarm = SwarmBuilder::with_existing_identity(local_keypair)
             .with_tokio()
             .with_tcp(
-                libp2p::tcp::Config::default(),
-                libp2p::tls::Config::new,
-                libp2p::yamux::Config::default,
+                tcp::Config::default(),
+                noise::Config::new,
+                yamux::Config::default,
+            )?
+            .with_dns_config(
+                dns::ResolverConfig::cloudflare(),
+                dns::ResolverOpts::default(),
             )
-            .unwrap()
             .with_behaviour(|_| behaviour)
-            .unwrap()
+            .expect("Moving behaviour doesn't fail")
             .build();
 
         swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
         // Tell Swarm to listen on all bootnodes
         for addr in &node_config.p2p_bootnodes {
+            println!("Dialed {addr}");
             swarm.dial(addr.clone()).unwrap();
-            println!("Dialed {addr}")
         }
         Ok(SwarmRunner { swarm })
     }
